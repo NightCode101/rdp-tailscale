@@ -6,32 +6,44 @@ on:
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 360  # 6 hours max
+    timeout-minutes: 360
     steps:
       - name: Install Tailscale
+        shell: powershell
         run: |
-          Write-Host "Downloading Tailscale..."
-          Invoke-WebRequest -Uri https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe -OutFile tailscale.exe
-          Start-Process .\tailscale.exe -ArgumentList "/quiet" -Wait
-          Write-Host "Tailscale installed."
+          Write-Host "Downloading Tailscale installer..."
+          Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe" -OutFile "tailscale-setup.exe"
+          Start-Process -FilePath ".\tailscale-setup.exe" -ArgumentList "/quiet" -Wait
+          Write-Host "Tailscale installed to C:\Program Files\Tailscale"
 
-      - name: Start Tailscale and display login URL
+      - name: Start Tailscale login
+        shell: powershell
         run: |
+          $tailscale = "C:\Program Files\Tailscale\tailscale.exe"
+          if (-not (Test-Path $tailscale)) {
+            Write-Error "Tailscale not found at $tailscale"
+            exit 1
+          }
+
           Write-Host "Starting Tailscale login..."
-          tailscale up
+          & "$tailscale" up
           Write-Host "Visit the above link to authenticate your Tailscale session."
 
-      - name: Enable RDP access
+      - name: Enable RDP
+        shell: powershell
         run: |
           Write-Host "Enabling RDP..."
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name 'fDenyTSConnections' -Value 0
+          Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server" -Name "fDenyTSConnections" -Value 0
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-          Write-Host "RDP enabled."
+          Write-Host "RDP enabled successfully."
 
       - name: Show Tailscale IP
+        shell: powershell
         run: |
-          tailscale ip -4
-          Write-Host "Use the IP above with Remote Desktop (mstsc) to connect."
+          $tailscale = "C:\Program Files\Tailscale\tailscale.exe"
+          Write-Host "Fetching Tailscale IP..."
+          & "$tailscale" ip -4
+          Write-Host "Use the IP above with Remote Desktop (mstsc)."
           Write-Host "Username: runneradmin"
           Write-Host "Password: actions"
-          Write-Host "Note: session ends when the workflow finishes."
+          Write-Host "Session ends when workflow stops."
