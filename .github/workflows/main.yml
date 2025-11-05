@@ -1,0 +1,37 @@
+name: Free RDP via Tailscale
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 360  # 6 hours max
+    steps:
+      - name: Install Tailscale
+        run: |
+          Write-Host "Downloading Tailscale..."
+          Invoke-WebRequest -Uri https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe -OutFile tailscale.exe
+          Start-Process .\tailscale.exe -ArgumentList "/quiet" -Wait
+          Write-Host "Tailscale installed."
+
+      - name: Start Tailscale and display login URL
+        run: |
+          Write-Host "Starting Tailscale login..."
+          tailscale up
+          Write-Host "Visit the above link to authenticate your Tailscale session."
+
+      - name: Enable RDP access
+        run: |
+          Write-Host "Enabling RDP..."
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name 'fDenyTSConnections' -Value 0
+          Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+          Write-Host "RDP enabled."
+
+      - name: Show Tailscale IP
+        run: |
+          tailscale ip -4
+          Write-Host "Use the IP above with Remote Desktop (mstsc) to connect."
+          Write-Host "Username: runneradmin"
+          Write-Host "Password: actions"
+          Write-Host "Note: session ends when the workflow finishes."
